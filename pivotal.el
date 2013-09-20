@@ -25,11 +25,16 @@
 (require 'dash)
 (require 'maps)
 
+(defun pivotal-read-file (path)
+  (with-temp-buffer
+    (insert-file-contents path)
+    (buffer-string)))
+
 (defun pivotal-project ()
-  (string-to-int (slurp "~/.pivotal-project")))
+  (string-to-int (pivotal-read-file "~/.pivotal-project")))
 
 (defun pivotal-api-key ()
-  (slurp "~/.pivotolapi"))
+  (pivotal-read-file "~/.pivotal-api-key"))
 
 (defun pivotal-fetch (request)
   (m/letm ((method path filter) request)
