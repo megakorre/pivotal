@@ -69,10 +69,52 @@
      (format "%i|%s" id (decode-coding-string name 'utf-8)))
    (pivotal-active-stories)))
 
-(defun pivotal-make-ref (story-name)
+(defun pivotal-story-name->story-id (story-name)
+  (first (split-string story-name "|")))
+
+(defun pivotal-completing-read-story-id ()
+  "Prompts for a pivotal story"
+  (let ((stories (pivotal-active-stories-names)))
+    (pivotal-story-name->story-id
+     ;; Choose among available stories, defaults to first one
+     (completing-read "Story: " stories nil nil nil nil (first stories)))))
+
+(defun pivotal-make-ref (story-id)
+  "Inserts pivotal ref for given story"
   (interactive
-   (list (completing-read "Story: " (pivotal-active-stories-names))))
-  (insert
-   (format "[%s]" (first (split-string story-name "|")))))
+   (list (pivotal-completing-read-story-id)))
+  (insert (format "[%s]" story-id)))
+
+(defun pivotal-make-branch (story-id)
+  "Creates a new branch with proper pivotal prefix"
+  (interactive
+   (list (pivotal-completing-read-story-id)))
+  (magit-create-branch
+   (read-string "Create branch: " (concat story-id "_"))
+   (magit-read-rev "Parent" (or (magit-guess-branch)
+                                (magit-get-current-branch)))))
+(defun pivotal--magit-remote-update ()
+  "Update all remotes synchronously."
+  (or (run-hook-with-args-until-success 'magit-remote-update-hook)
+      (magit-run-git "remote" "update" magit-custom-options)))
+
+(defun pivotal--magit-find-branch (story-id)
+  "Returns the first branch that matches the given story"
+  (--first (string-match story-id (car it))
+           (magit-list-interesting-refs)))
+
+(defun pivotal-checkout-branch (story-id)
+  "Checkouts or create a branch for the given id"
+  (interactive
+   (list (pivotal-completing-read-story-id)))
+  (let ((existing (or (pivotal--magit-find-branch story-id)
+                      (progn
+                        (pivotal--magit-remote-update)
+                        (pivotal--magit-find-branch story-id)))))
+    (if existing
+        (or
+         (magit-maybe-create-local-tracking-branch (cdr existing))
+         (magit-checkout (car existing)))
+      (pivotal-make-branch story-id))))
 
 (provide 'pivotal)
