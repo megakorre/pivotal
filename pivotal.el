@@ -58,7 +58,7 @@
   (list
    :method "GET"
    :path (format "projects/%i/stories" (pivotal-project))
-   :filter "state:started"))
+   :filter "state:started,finished,delivered,rejected"))
 
 (defun pivotal-active-stories ()
   (-> (pivotal-stories-r) (pivotal-fetch) (pivotal-parse-r)))
