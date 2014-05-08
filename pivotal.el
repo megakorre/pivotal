@@ -36,15 +36,19 @@
 (defun pivotal-api-key ()
   (pivotal-read-file "~/.pivotal-api-key"))
 
+(defun pivotal-build-url (path arguments)
+  (concat
+   "https://www.pivotaltracker.com/services/v5/"
+   path "?" (s-join "&" arguments)))
+
 (defun pivotal-fetch (request)
   (m/letm ((method path filter) request)
-    (let ((url-request-method method)
-	  (url-request-extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")
-				       ("X-TrackerToken" . ,(pivotal-api-key))))
-	  (url-request-data (if filter (format "filter=%s" filter))))
-      (with-current-buffer (url-retrieve-synchronously
-			    (concat "https://www.pivotaltracker.com/services/v5/" path))
-	(buffer-string)))))
+    (let* ((url-request-method method)
+           (url-request-extra-headers `(("X-TrackerToken" . ,(pivotal-api-key))))
+           (arguments (if filter (list (format "filter=%s" filter))))
+           (buffer (url-retrieve-synchronously (pivotal-build-url path arguments))))
+      (with-current-buffer buffer
+        (buffer-string)))))
 
 (defun pivotal-parse-r (content)
   (-map 'm/alist->plist
