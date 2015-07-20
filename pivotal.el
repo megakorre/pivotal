@@ -89,32 +89,38 @@
   "Creates a new branch with proper pivotal prefix"
   (interactive
    (list (pivotal-completing-read-story-id)))
-  (magit-create-branch
+  (magit-branch-and-checkout
    (read-string "Create branch: " (concat story-id "_"))
-   (magit-read-rev "Parent" (or (magit-guess-branch)
-                                (magit-get-current-branch)))))
+   (magit-read-branch "Parent" (magit-get-current-branch))))
+
 (defun pivotal--magit-remote-update ()
   "Update all remotes synchronously."
   (or (run-hook-with-args-until-success 'magit-remote-update-hook)
-      (magit-run-git "remote" "update" magit-custom-options)))
+      (magit-run-git "remote" "update")))
+
+(defun pivotal--magit-find-local-branch (story-id)
+  "Returns the first branch that matches the given story"
+  (--first (string-match story-id it)
+           (magit-list-local-branch-names)))
 
 (defun pivotal--magit-find-branch (story-id)
   "Returns the first branch that matches the given story"
-  (--first (string-match story-id (car it))
-           (magit-list-interesting-refs)))
+  (--first (string-match story-id it)
+           (magit-list-refnames)))
 
 (defun pivotal-checkout-branch (story-id)
   "Checkouts or create a branch for the given id"
   (interactive
    (list (pivotal-completing-read-story-id)))
-  (let ((existing (or (pivotal--magit-find-branch story-id)
-                      (progn
-                        (pivotal--magit-remote-update)
-                        (pivotal--magit-find-branch story-id)))))
-    (if existing
-        (or
-         (magit-maybe-create-local-tracking-branch (cdr existing))
-         (magit-checkout (car existing)))
-      (pivotal-make-branch story-id))))
+  (let ((existing-local (pivotal--magit-find-local-branch story-id))
+        (existing-remote (or (pivotal--magit-find-branch story-id)
+                             (progn
+                               (pivotal--magit-remote-update)
+                               (pivotal--magit-find-branch story-id)))))
+    (if existing-local
+        (magit-checkout existing-local)
+      (if existing-remote
+          (magit-run-git "checkout" "-t" existing-remote)
+        (pivotal-make-branch story-id)))))
 
 (provide 'pivotal)
